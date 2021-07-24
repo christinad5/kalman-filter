@@ -3,10 +3,8 @@ from numpy import sin, cos
 import quaternion as q
 
 import rospy
-from rospy.names import initialize_mappings
-from std_msgs.msg import String
-from sensor_msgs.msg import Imu
-from sensor_msgs.msg import MagneticField
+from std_msgs.msg import String, Float32MultiArray
+from sensor_msgs.msg import Imu, MagneticField
 from geometry_msgs.msg import Quaternion
 from scipy.spatial.transform import Rotation as R
 
@@ -275,9 +273,9 @@ def P_measure(P_prop, K_mat, S_mat, q_update):
 
 
 """the variables below are the initial inputs to the EKF algorithm"""
-vector_imu_acc_xyz = np.array([[0.356], [-0.461], [-9.454]]) # acceleration data
-vector_imu_ang_vel_xyz = np.array([[0.0303406], [0.000077], [0.002872]]) # angular velocity data
-vector_imu_mag_xyz = np.array([[0.0669], [-0.0341], [-0.0581]]) # magnometer data
+vector_imu_acc_xyz = np.array([[-0.853], [-1.221], [-9.357]]) # acceleration data
+vector_imu_ang_vel_xyz = np.array([[0.000198], [0.000969], [-0.00126]]) # angular velocity data
+vector_imu_mag_xyz = np.array([[-0.1966], [0.0546], [0.3987]]) # magnometer data
 
 # covariance for angular velocity. Found on page 23, equation 3.42. Must input values along diagonal.
 sigma_w = np.array([
@@ -298,10 +296,13 @@ sigma_m = np.array([
 	[0, 0, np.square(0.25)]
 ])
 
-def kalman_filter(y_acc, y_ang_vel, y_mag, sigma_w, sigma_a, sigma_m):
-	"""Step One"""
-	quat_initial = np.array([[0.979126], [0.019634], [0.023438], [0.200944]]) # initiating quaternion data in (q0, q1, q3, q4) scalar first format
-	P_initial = sigma_q_i(quat_initial)  # initiating covariance matrix P
+# initiating quaternion data in (q0, q1, q3, q4) scalar first format
+quat_initial = np.array([[0.003155], [-0.043709], [-0.065182], [-0.996911]])
+# initiating covariance matrix P
+P_initial = sigma_q_i(quat_initial) 
+
+def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sigma_a, sigma_m):
+	"""Step One initiate data"""
 	dt = 0.1 # initiating time step
 
 	"""Step Two (a)"""
@@ -322,28 +323,60 @@ def kalman_filter(y_acc, y_ang_vel, y_mag, sigma_w, sigma_a, sigma_m):
 	quat_update = q_measure(quat_estimate, K_mat, err_t)
 	P_update = P_measure(P_estimate, K_mat, S_mat, quat_update)
 
-	quat_initial = quat_update
-	P_initial = P_update
-	print(quat_initial)
-	print(P_initial)
-	return quat_update
+	return quat_update, P_update
 
-#kalman_filter(vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m)
 
-initial = True
+def callback_acc(data):
+	global vector_imu_acc_xyz
+	vector_imu_acc_xyz[0,0] = data.linear_acceleration.x 
+	vector_imu_acc_xyz[1,0] = data.linear_acceleration.y
+	vector_imu_acc_xyz[2,0] = data.linear_acceleration.z
 
-def random_func():
-	global initial
-	if initial == True:
-		print(initial)
-		initial = False
-		print(initial)
-	elif initial == False:
-		print("initial is false.")
-	pass
+
+def callback_ang_vel(data):
+    global vector_imu_ang_vel_xyz
+    vector_imu_ang_vel_xyz[0,0] = data.angular_velocity.x
+    vector_imu_ang_vel_xyz[1,0] = data.angular_velocity.y
+    vector_imu_ang_vel_xyz[2,0] = data.angular_velocity.z
+
+
+def callback_magnetic_field(data):
+	global vector_imu_mag_xyz
+	vector_imu_mag_xyz[0,0] = data.magnetic_field.x 
+	vector_imu_mag_xyz[1,0] = data.magnetic_field.y
+	vector_imu_mag_xyz[2,0] = data.magnetic_field.z 
+
+def listener():
+	global quat_initial
+	global P_initial
+
+	rospy.init_node('listener', anonymous=True)
+	rospy.Subscriber("/sensor/Imu", Imu, callback_acc)
+	rospy.Subscriber("/sensor/Magnetometer", MagneticField, callback_magnetic_field)
+    
+	pub_quaternion_transform = rospy.Publisher('/orientation', Quaternion, queue_size=10)
+	pub_covariance_matrix = rospy.Publisher('/covariance', Float32MultiArray, queue_size = 10)
+	rate = rospy.Rate(10)
+	while not rospy.is_shutdown():
+		quat, covar = kalman_filter(quat_initial, P_initial, vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m)
+
+		quat_initial = quat
+		P_initial = covar
+
+		quaternion = Quaternion()
 		
-if __name__ == '__main__':		
-	random_func()
-	print('round one')
-	random_func()
-	print('round two')
+		quaternion.w = quat_initial[0]
+		quaternion.x = quat_initial[1]
+		quaternion.y = quat_initial[2]
+		quaternion.z = quat_initial[3]
+
+		covariance_matrix = Float32MultiArray([3,3], P_initial)
+
+		rospy.loginfo(quaternion)
+		pub_quaternion_transform.publish(quaternion)
+		pub_covariance_matrix.publish(covariance_matrix)
+	rospy.spin()
+
+
+if __name__ == '__main__':
+	listener()

@@ -277,9 +277,9 @@ def P_measure(P_prop, K_mat, S_mat, q_update):
 
 
 """the variables below are the initial inputs to the EKF algorithm"""
-vector_imu_acc_xyz = np.array([[-0.853], [-1.221], [-9.357]]) # acceleration data
-vector_imu_ang_vel_xyz = np.array([[0.000198], [0.000969], [-0.00126]]) # angular velocity data
-vector_imu_mag_xyz = np.array([[-0.1966], [0.0546], [0.3987]]) # magnometer data
+vector_imu_acc_xyz = np.array([[-8.699], [2.999], [-4.573]]) # acceleration data
+vector_imu_ang_vel_xyz = np.array([[-0.18726], [-0.181548], [-0.11013]]) # angular velocity data
+vector_imu_mag_xyz = np.array([[-0.1421], [-0.2619], [0.2536]]) # magnometer data
 
 # covariance for angular velocity. Found on page 23, equation 3.42. Must input values along diagonal.
 sigma_w = np.array([
@@ -301,7 +301,7 @@ sigma_m = np.array([
 ])
 
 # initiating quaternion data in (q0, q1, q3, q4) scalar first format
-quat_initial = np.array([[0.003155], [-0.043709], [-0.065182], [-0.996911]])
+quat_initial = np.array([[-0.542798], [-0.26298], [-0.479617], [-0.637327]])
 # initiating covariance matrix P
 P_initial = sigma_q_i(quat_initial) 
 
@@ -311,6 +311,7 @@ def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sig
 
 	"""Step Two (a)"""
 	quat_estimate = quat_propogate(quat_initial, y_ang_vel, dt)
+	print(quat_estimate)
 	F_mat = F_t1(y_ang_vel, dt)
 	G_mat = G_t1(quat_initial, sigma_w, dt)
 	P_estimate = P_propogate(P_initial, F_mat, G_mat, sigma_w)
