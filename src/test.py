@@ -241,6 +241,7 @@ def error_t(y_acc, y_mag, R_bn_mat):
 					[y_acc],
 					[y_mag]
 					])
+
 	y_hat_t = np.block([
 						[-R_bn_mat@g_n],
 						[R_bn_mat@m_n]
@@ -274,7 +275,7 @@ def P_measure(P_prop, K_mat, S_mat, q_update):
 
 """the variables below are the initial inputs to the EKF algorithm"""
 vector_imu_acc_xyz = np.array([[-0.853], [-1.221], [-9.357]]) # acceleration data
-vector_imu_ang_vel_xyz = np.array([[0.000198], [0.000969], [-0.00126]]) # angular velocity data
+vector_imu_ang_vel_xyz = np.array([[-0.000316], [-0.000629], [-0.001614]]) # angular velocity data quat
 vector_imu_mag_xyz = np.array([[-0.1966], [0.0546], [0.3987]]) # magnometer data
 
 # covariance for angular velocity. Found on page 23, equation 3.42. Must input values along diagonal.
@@ -297,7 +298,7 @@ sigma_m = np.array([
 ])
 
 # initiating quaternion data in (q0, q1, q3, q4) scalar first format
-quat_initial = np.array([[0.003155], [-0.043709], [-0.065182], [-0.996911]])
+quat_initial = np.array([[-0.233556], [-0.016384], [0.006446], [0.972184]])
 # initiating covariance matrix P
 P_initial = sigma_q_i(quat_initial) 
 
@@ -377,6 +378,58 @@ def listener():
 		pub_covariance_matrix.publish(covariance_matrix)
 	rospy.spin()
 
+def quat_conj(quat):
+	"""Computes the conjugate of a quaternion. 
+	quat is a 4x1 array of a quaternion (q0, q1, q2, q3) scalar first format.
+	Returns a 4x1 array."""
+	q0 = quat[0]
+	qv = -quat[1:]
+	quat = np.block([[q0], [qv]])
+	return quat
+
+def rot_mat_to_quat(R_mat):
+	q0 = np.sqrt(1 + np.trace(R_mat))/2
+	qv = (1/(4*q0) )* np.array([
+								[R_mat[2][1]- R_mat[1][2]],
+								[R_mat[0][2]- R_mat[2][0]],
+								[R_mat[1][0] - R_mat[0][1]]
+	])
+	quat = np.block([[q0], [qv]])
+	return quat
+
+def R_nb(initial_q):
+	"""This function computes the rotation matrix transpose associated with our predicted quaternion (from frame b to n).
+	quat_initial is a 4x1 array in (q0, q1, q2, q3) form with scalar first.
+	Returns 3x3 array.
+	"""
+	q0 = initial_q[0][0]
+	q1 = initial_q[1][0]
+	q2 = initial_q[2][0]
+	q3 = initial_q[3][0]
+	R_nb = np.array([[2*np.square(q0)+2*np.square(q1)-1, 2*q1*q2-2*q0*q3, 2*q1*q3+2*q0*q2],
+				[2*q1*q2+2*q0*q3, 2*np.square(q0)+2*np.square(q2)-1, 2*q2*q3-2*q0*q1],
+				[2*q1*q3-2*q0*q2, 2*q2*q3+2*q0*q1, 2*np.square(q0)+2*np.square(q3)-1]])
+	return R_nb
+
+
+def quat_mult(quat1, quat2):
+	p0 = quat1[0]
+	pv = quat1[1:]
+	q0 = quat2[0]
+	qv = quat2[1:]
+	quat_mult = np.block([
+		[p0*q0 - pv.transpose()@qv],
+		[p0*qv + q0*pv + np.cross(pv, qv, axis = 0)]
+	])
+	return quat_mult
+
 
 if __name__ == '__main__':
-	listener()
+	print(R_bn(quat_initial))
+	y_acc = np.array([[1],[0],[0]])
+	y_mag = np.array([[0], [0],[0]])
+	y_t = np.block([
+				[y_acc],
+				[y_mag]
+				])
+	print(R_bn(quat_initial)@y_acc)

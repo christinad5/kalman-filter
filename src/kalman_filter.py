@@ -48,7 +48,7 @@ def quat_left_multipl(p):
 
 def quat_right_multipl(u):
 	"""Cmputes the right quaternion multiplication. Found on page 20, equation 3.28.
-	p is a 4x1 array.
+	u is a 4x1 array.
 	Returns a 4x4 array."""
 	q0 = u[0]
 	qv = u[1:]
@@ -73,6 +73,15 @@ def exp_map(vec):
                         [(vec_z)*sin(norm)/norm]])
     return exp_map
 
+def quat_conj(quat):
+	"""Computes the conjugate of a quaternion. 
+	quat is a 4x1 array of a quaternion (q0, q1, q2, q3) scalar first format.
+	Returns a 4x1 array."""
+	q0 = quat[0]
+	qv = -quat[1:]
+	quat = np.block([[q0], [qv]])
+	return quat
+
 
 def sigma_q_i(initial_q):
 	"""Computes the covariance of the estimated quaternion for time t. Found on page 28, equation 3.69.
@@ -92,8 +101,9 @@ def sigma_q_i(initial_q):
 		[y*np.square(x)*cos(e_norm)/e_norm, sin(e_norm)+(np.power(y,3)*cos(e_norm)/e_norm), y*np.square(z)*cos(e_norm)/e_norm],
 		[z*np.square(x)*cos(e_norm)/e_norm, z*np.square(y)*cos(e_norm)/e_norm, sin(e_norm)+(np.power(z,3)*cos(e_norm)/e_norm)]
 	])
-
-	sigma_q_i_mat = (1/4)*quat_right_multipl(initial_q)@err_jac@sigma_eta_i@err_jac.transpose()@quat_right_multipl(initial_q)
+	
+	# initial q goes from 'b' frame to 'n' frame
+	sigma_q_i_mat = (1/4)*quat_right_multipl(initial_q)@err_jac@sigma_eta_i@err_jac.transpose()@quat_right_multipl(quat_conj(initial_q))
 	return sigma_q_i_mat
 
 
@@ -271,14 +281,14 @@ def P_measure(P_prop, K_mat, S_mat, q_update):
 	S_mat is a 6x6 array of the S matrix. Obtained with S_t function."
 	Returns a 4x4 array."""
 	P_update = P_prop - K_mat @ S_mat @ K_mat.transpose() # update P matrix measurement
-	J_mat = (1/np.power((np.linalg.norm(q_update)), 3))*(q_update @ q_update.transpose()) # calculate J matrix
+	J_mat = (1/np.power(np.linalg.norm(q_update), 3))*(q_update @ q_update.transpose()) # calculate J matrix
 	P_update = J_mat @ P_update @ J_mat.transpose() # renormalize P matrix
 	return P_update
 
 
 """the variables below are the initial inputs to the EKF algorithm"""
-vector_imu_acc_xyz = np.array([[-8.699], [2.999], [-4.573]]) # acceleration data
-vector_imu_ang_vel_xyz = np.array([[-0.18726], [-0.181548], [-0.11013]]) # angular velocity data
+vector_imu_acc_xyz = np.array([[0.267], [-0.174], [-9.434]]) # acceleration data
+vector_imu_ang_vel_xyz = np.array([[-0.000316], [-0.000629], [-0.001614]]) # angular velocity data
 vector_imu_mag_xyz = np.array([[-0.1421], [-0.2619], [0.2536]]) # magnometer data
 
 # covariance for angular velocity. Found on page 23, equation 3.42. Must input values along diagonal.
@@ -301,7 +311,7 @@ sigma_m = np.array([
 ])
 
 # initiating quaternion data in (q0, q1, q3, q4) scalar first format
-quat_initial = np.array([[-0.542798], [-0.26298], [-0.479617], [-0.637327]])
+quat_initial = np.array([[-0.233556], [-0.016384], [0.006446], [0.972184]])
 # initiating covariance matrix P
 P_initial = sigma_q_i(quat_initial) 
 
@@ -311,7 +321,6 @@ def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sig
 
 	"""Step Two (a)"""
 	quat_estimate = quat_propogate(quat_initial, y_ang_vel, dt)
-	print(quat_estimate)
 	F_mat = F_t1(y_ang_vel, dt)
 	G_mat = G_t1(quat_initial, sigma_w, dt)
 	P_estimate = P_propogate(P_initial, F_mat, G_mat, sigma_w)
@@ -357,6 +366,7 @@ def listener():
 
 	rospy.init_node('listener', anonymous=True)
 	rospy.Subscriber("/sensor/Imu", Imu, callback_acc)
+	rospy.Subscriber("/sensor/Imu", Imu, callback_ang_vel)
 	rospy.Subscriber("/sensor/Magnetometer", MagneticField, callback_magnetic_field)
     
 	pub_quaternion_transform = rospy.Publisher('/orientation', Quaternion, queue_size=10)
@@ -364,7 +374,6 @@ def listener():
 	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():
 		quat, covar = kalman_filter(quat_initial, P_initial, vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m)
-
 		quat_initial = quat
 		P_initial = covar
 
