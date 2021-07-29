@@ -123,9 +123,7 @@ def quat_propogate(initial_q, y_ang_vel, dt):
 						[q_hat_nb_t[0][1]],
 						[q_hat_nb_t[0][2]],
 						[q_hat_nb_t[0][3]]])
-	return q_hat_nb_t # why is this 1x4, because in the comments, you said it needs to return
-	#4x1, also you can just use .T to transpose a matrix. 
-	# You should check all your matrices that have the right shape or that they are consistent with the description of the fcn
+	return q_hat_nb_t # use .T to transpose a matrix. 
 
 
 def F_t1(y_ang_vel, dt):
