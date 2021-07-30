@@ -386,6 +386,7 @@ def listener():
 	
 	time.sleep(2) # this is so you give some time to subscriber
 	quat_initial = quaternion_imu
+	# quat_initial = np.array([[1], [0], [0], [0]])
 	P_initial = sigma_q_i(quat_initial) 
 
 	rate = rospy.Rate(13.32)
