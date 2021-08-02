@@ -425,11 +425,37 @@ def quat_mult(quat1, quat2):
 
 
 if __name__ == '__main__':
-	print(R_bn(quat_initial))
-	y_acc = np.array([[1],[0],[0]])
-	y_mag = np.array([[0], [0],[0]])
-	y_t = np.block([
-				[y_acc],
-				[y_mag]
-				])
-	print(R_bn(quat_initial)@y_acc)
+	quat1_imu= np.quaternion(1, 0, 1, 0)
+	quat2_imu= np.quaternion(1, 0, 1, 0)
+	quat1_EKF= np.quaternion(0, 2, 0, 4)
+	quat2_EKF= np.quaternion(1, 0, 0, 0)
+
+	q = quat1_imu * quat2_imu
+	phi = np.arctan2((q.w*q.x + q.y*q.z), 1 - 2*(np.square(q.x)+np.square(q.y)))
+	theta = np.arcsin(2*(q.w*q.y - q.z*q.x))
+	psi = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(np.square(q.y)+np.square(q.z)))
+	angles_imu = [phi, theta, psi]
+	print(angles_imu)
+
+	q = quat1_EKF * quat2_EKF
+	phi = np.arctan2((q.w*q.x + q.y*q.z), 1 - 2*(np.square(q.x)+np.square(q.y)))
+	theta = np.arcsin(2*(q.w*q.y - q.z*q.x))
+	psi = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(np.square(q.y)+np.square(q.z)))
+	angles_EKF = [phi, theta, psi]
+
+	angle_error = []
+	for i in range(len(angles_imu)):
+		if angles_imu[i] != 0: 
+			error = 100*np.abs(((angles_imu[i] - angles_EKF[i])/angles_imu[i]))
+			angle_error.append(error)
+		elif angles_imu == 0:
+			if angles_EKF != 0:
+				error = 100*np.abs(((angles_imu[i] - angles_EKF[i])/angles_EKF[i]))
+				angle_error.append(error)
+			elif angles_EKF ==0:
+				error = 0
+				angle_error.append(error)
+		else:
+			angle_error.append('8888')
+
+	print(angle_error)
