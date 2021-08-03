@@ -8,24 +8,39 @@ from std_msgs.msg import String, Float64, Float32, Int32
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Quaternion, Vector3
 
-def callback1(data):
-    timing1 = data.header.stamp
-    timing1 = float(timing1)
-    timing_secs = data.header.stamp.secs
-    timing_nsecs = data.header.stamp.nsecs
-    rospy.loginfo('timing is %s', timing1)
-    rospy.loginfo('timing seconds is %s', timing_secs)
-    rospy.loginfo('timing nanoseconds is %s', timing_nsecs)
+class Duration:
 
-def time_diff(timing1, timing2):
-    time_diff = timing2 - timing1
-    return time_diff
+    def __init__(self):
+        self.time_prev = 0
+        self.time_curr = 0
+        self.time_diff = 1/13.32
+        self.first_loop = True
 
-def listener():
-    rospy.init_node('listener', anonymous=True)
-    rospy.Subscriber("/sensor/Imu", Imu, callback1)
-    rospy.spin()
+    def callback(self, data):
+        if self.first_loop == True:
+            timing = data.header.stamp
+            self.time_curr = timing.to_sec()
+            self.first_loop = False
+            print('first loop')
+        else:
+            self.time_prev = self.time_curr
+            timing = data.header.stamp
+            self.time_curr = timing.to_sec()
+            self.time_diff = self.time_curr - self.time_prev
+            print('previous time: ', self.time_prev)
+            print('current time: ', self.time_curr)
+            print(self.time_diff)
+
+    def main(self):
+        rospy.init_node('time_diff', anonymous=True)
+        rospy.Subscriber("/sensor/Imu", Imu, self.callback)
+        rospy.spin()
 
 
 if __name__ == '__main__':
-    listener()
+    try:
+         duration = Duration()
+         duration.main()
+    except rospy.ROSInterruptException:
+        pass
+
