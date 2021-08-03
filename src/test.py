@@ -425,10 +425,11 @@ def quat_mult(quat1, quat2):
 
 
 if __name__ == '__main__':
-	quat1_imu= np.quaternion(1, 0, 1, 0)
-	quat2_imu= np.quaternion(1, 0, 1, 0)
-	quat1_EKF= np.quaternion(0, 2, 0, 4)
-	quat2_EKF= np.quaternion(1, 0, 0, 0)
+	quat1_imu= np.quaternion(0.635786, 0.017426, 0.030037, -0.771084)
+	quat2_imu= np.quaternion(-0.003516, 0.928514, -0.370847, -0.017942)
+	quat1_EKF= np.quaternion(0.361245871389329, -0.419330953389159, -0.450775573549765, -0.70033160304586)
+	quat2_EKF= np.quaternion(-0.096349549304843, 0.94501624479145, -0.312500283128871, -0.00215278270974857)
+
 
 	q = quat1_imu * quat2_imu
 	phi = np.arctan2((q.w*q.x + q.y*q.z), 1 - 2*(np.square(q.x)+np.square(q.y)))
@@ -442,17 +443,18 @@ if __name__ == '__main__':
 	theta = np.arcsin(2*(q.w*q.y - q.z*q.x))
 	psi = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(np.square(q.y)+np.square(q.z)))
 	angles_EKF = [phi, theta, psi]
+	print(angles_EKF)
 
 	angle_error = []
 	for i in range(len(angles_imu)):
 		if angles_imu[i] != 0: 
 			error = 100*np.abs(((angles_imu[i] - angles_EKF[i])/angles_imu[i]))
 			angle_error.append(error)
-		elif angles_imu == 0:
-			if angles_EKF != 0:
+		elif angles_imu[i] == 0:
+			if angles_EKF[i] != 0:
 				error = 100*np.abs(((angles_imu[i] - angles_EKF[i])/angles_EKF[i]))
 				angle_error.append(error)
-			elif angles_EKF ==0:
+			elif angles_EKF[i] == 0:
 				error = 0
 				angle_error.append(error)
 		else:

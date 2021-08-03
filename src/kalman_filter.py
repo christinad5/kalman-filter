@@ -339,8 +339,6 @@ def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sig
 
 	return quat_update, P_update
 
-dt = 0
-
 def callback_acc_ang_vel(data, 
 						quaternion_imu, 
 						vector_imu_acc_xyz, 

@@ -17,5 +17,5 @@
         <remap from="/orientation" to="/part2/EKF"/>
         <node pkg="kalman_filter" type="kalman_filter.py" name="ekf_part2"></node>
     </group>
-    <node pkg="kalman_filter" type="angle_error.py" name="angle_error"></node>
+    <node pkg="kalman_filter" type="angle_error_method2.py" output="screen" name="angle_error"></node>
 </launch>
