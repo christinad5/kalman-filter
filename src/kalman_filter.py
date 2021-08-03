@@ -82,6 +82,40 @@ def quat_conj(quat):
 	quat = np.block([[q0], [qv]])
 	return quat
 
+def err_jac(err_vec):
+	"""Computes the error Jacobian used in function 'siqma_q_i' and 'G_t1'
+	err_vec is a 1x3 array that represents the normal distribution of covariance
+	Returns a 4x3 array."""
+	x = err_vec[0]
+	y = err_vec[1]
+	z = err_vec[2]
+	e = np.linalg.norm(err_vec)
+
+	# first row of values for err_jac matrix
+	mat_11 = -x*sin(e)/e
+	mat_12 = -y*sin(e)/e
+	mat_13 = -z*sin(e)/e
+	# second row of values for err_jac matrix
+	mat_21 = (sin(e)/e) + (np.square(x)*cos(e)/np.square(e)) - (np.square(x)*sin(e)/np.power(e, 3))
+	mat_22 = (x*y*cos(e)/np.square(e)) - (x*y*sin(e)/np.power(e, 3))
+	mat_23 = (x*z*cos(e)/np.square(e)) - (x*z*sin(e)/np.power(e, 3))
+	# third row of values for err_jac matrix
+	mat_31 = (y*x*cos(e)/np.square(e)) - (y*x*sin(e)/np.power(e, 3))
+	mat_32 = (sin(e)/e) + (np.square(y)*cos(e)/np.square(e)) - (np.square(y)*sin(e)/np.power(e, 3))
+	mat_33 = (y*z*cos(e)/np.square(e)) - (y*z*sin(e)/np.power(e, 3))
+	# fourth row of values for err_jac matrix
+	mat_41 = (z*x*cos(e)/np.square(e)) - (z*x*sin(e)/np.power(e, 3))
+	mat_42 = (z*y*cos(e)/np.square(e)) - (z*y*sin(e)/np.power(e, 3))
+	mat_43 = (sin(e)/e) + (np.square(z)*cos(e)/np.square(e)) - (np.square(z)*sin(e)/np.power(e,3))
+
+	err_jac = np.array([
+		[mat_11, mat_12, mat_13],
+		[mat_21, mat_22, mat_23],
+		[mat_31, mat_32, mat_33],
+		[mat_41, mat_42, mat_43]
+	])
+	return err_jac
+
 
 def sigma_q_i(initial_q):
 	"""Computes the covariance of the estimated quaternion for time t. Found on page 28, equation 3.69.
@@ -90,20 +124,10 @@ def sigma_q_i(initial_q):
 	little_sigma_eta_i = (20*np.pi)/180
 	sigma_eta_i = np.square(little_sigma_eta_i)*np.eye(3)
 	err_eta = np.random.multivariate_normal(np.array([0,0,0]), sigma_eta_i)
-	x = err_eta[0]
-	y = err_eta[1]
-	z = err_eta[2]
-	e_norm = np.linalg.norm(err_eta)
-
-	err_jac = np.array([
-		[-np.square(x)*sin(e_norm)/e_norm, -np.square(y)*sin(e_norm)/e_norm, -np.square(z)*sin(e_norm)/e_norm],
-		[sin(e_norm)+(np.power(x,3)*cos(e_norm)/e_norm), x*np.square(y)*cos(e_norm)/e_norm, x*np.square(z)*cos(e_norm)/e_norm],
-		[y*np.square(x)*cos(e_norm)/e_norm, sin(e_norm)+(np.power(y,3)*cos(e_norm)/e_norm), y*np.square(z)*cos(e_norm)/e_norm],
-		[z*np.square(x)*cos(e_norm)/e_norm, z*np.square(y)*cos(e_norm)/e_norm, sin(e_norm)+(np.power(z,3)*cos(e_norm)/e_norm)]
-	])
+	err_jac_mat = err_jac(err_eta)
 	
 	# initial q goes from 'b' frame to 'n' frame
-	sigma_q_i_mat = (1/4)*quat_right_multipl(initial_q)@err_jac@sigma_eta_i@err_jac.transpose()@quat_right_multipl(quat_conj(initial_q))
+	sigma_q_i_mat = (1/4)*quat_right_multipl(initial_q)@err_jac_mat@sigma_eta_i@err_jac_mat.transpose()@quat_right_multipl(quat_conj(initial_q))
 	return sigma_q_i_mat
 
 
@@ -145,19 +169,9 @@ def G_t1(initial_q, sigma_w, dt):
 	q_L = quat_left_multipl(initial_q)
 	err_w = np.random.multivariate_normal(np.array([0,0,0]), sigma_w)
 
-	x = err_w[0]
-	y = err_w[1]
-	z = err_w[2]
-	e_norm = np.linalg.norm(err_w)
-
-	err_jac = np.array([
-		[-np.square(x)*sin(e_norm)/e_norm, -np.square(y)*sin(e_norm)/e_norm, -np.square(z)*sin(e_norm)/e_norm],
-		[sin(e_norm)+(np.power(x,3)*cos(e_norm)/e_norm), x*np.square(y)*cos(e_norm)/e_norm, x*np.square(z)*cos(e_norm)/e_norm],
-		[y*np.square(x)*cos(e_norm)/e_norm, sin(e_norm)+(np.power(y,3)*cos(e_norm)/e_norm), y*np.square(z)*cos(e_norm)/e_norm],
-		[z*np.square(x)*cos(e_norm)/e_norm, z*np.square(y)*cos(e_norm)/e_norm, sin(e_norm)+(np.power(z,3)*cos(e_norm)/e_norm)]
-	])
-
-	G_jacobian = -(dt/2)*(q_L @ err_jac)
+	err_jac_mat = err_jac(err_w)
+	
+	G_jacobian = -(dt/2)*(q_L @ err_jac_mat)
 	return G_jacobian
 
 
