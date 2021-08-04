@@ -431,10 +431,21 @@ def func_two_returns():
 
 
 if __name__ == '__main__':
-	err_vec = [-0.00557302, 0.0036593, 0.00189644]
-	fun = lambda e: np.r_[np.cos(np.sqrt(np.square(e[0])+np.square(e[1])+np.square(e[2]))), 
-                                e[0]*np.sin(np.sqrt(np.square(e[0])+np.square(e[1])+np.square(e[2])))/np.sqrt(np.square(e[0])+np.square(e[1])+np.square(e[2])), 
-                                e[1]*np.sin(np.sqrt(np.square(e[0])+np.square(e[1])+np.square(e[2])))/np.sqrt(np.square(e[0])+np.square(e[1])+np.square(e[2])), 
-                                e[2]*np.sin(np.sqrt(np.square(e[0])+np.square(e[1])+np.square(e[2])))/np.sqrt(np.square(e[0])+np.square(e[1])+np.square(e[2]))]
-	jac = nd.Jacobian(fun)(err_vec)
-	print(jac)
+	# generate random 1x4 array
+	quat = np.random.randn(4)
+	print(quat)
+	quat_norm = np.linalg.norm(quat)     
+	quat = quat/quat_norm
+	print(quat)
+	print(np.linalg.norm(quat))
+
+	# quaternion in vertical list form for R_bn function
+	quat_vert = [[quat[0]], [quat[1]], [quat[2]], [quat[3]]]
+	print(quat_vert)
+
+	# view array as quaternion type
+	quat = q.as_quat_array(quat)
+	# compute rotation matrix
+	rot_mat = q.as_rotation_matrix(quat)
+	print(rot_mat)
+

@@ -213,7 +213,7 @@ def H_t(initial_q):
 	q2 = initial_q[2][0]
 	q3 = initial_q[3][0]
 
-	H_g = -1*np.array([
+	H_g = np.array([
 		[-2*q2, 2*q3, -2*q0, 2*q1],
 		[2*q1, 2*q0, 2*q3, 2*q2],
 		[4*q0, 0, 0, 4*q3]
