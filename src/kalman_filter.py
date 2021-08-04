@@ -299,13 +299,6 @@ def P_measure(P_prop, K_mat, S_mat, q_update):
 	P_update = J_mat @ P_update @ J_mat.transpose() # renormalize P matrix
 	return P_update
 
-
-"""the variables below are the initial inputs to the EKF algorithm"""
-# you don't need to put actual values cause the subscribers will add initial values
-# vector_imu_acc_xyz = np.array([[0.0], [0.0], [0.0]]) # acceleration data
-# vector_imu_ang_vel_xyz = np.array([[0.0], [0.0], [0.0]]) # angular velocity data
-# vector_imu_mag_xyz = np.array([[0.0], [0.0], [0.0]]) # magnometer data
-
 # covariance for angular velocity. Found on page 23, equation 3.42. Must input values along diagonal.
 sigma_w = np.array([
 	[np.square(0.0049), 0, 0],
@@ -329,10 +322,7 @@ sigma_m = np.array([
 # initiating covariance matrix P
 # P_initial = sigma_q_i(quat_initial) 
 
-def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sigma_a, sigma_m):
-	"""Step One initiate data"""
-	dt = 1/13.32 # initiating time step
-
+def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sigma_a, sigma_m, dt):
 	"""Step Two (a)"""
 	quat_estimate = quat_propogate(quat_initial, y_ang_vel, dt)
 	F_mat = F_t1(y_ang_vel, dt)
@@ -377,6 +367,25 @@ def callback_magnetic_field(data, vector_imu_mag_xyz):
 	vector_imu_mag_xyz[1,0] = data.magnetic_field.y
 	vector_imu_mag_xyz[2,0] = data.magnetic_field.z 
 
+class Duration:
+
+	def __init__(self):
+		self.time_prev = 0
+		self.time_curr = 0
+		self.time_diff = 1/13.32
+		self.first_loop = True
+
+	def callback(self, data):
+		if self.first_loop == True:
+			timing = data.header.stamp
+			self.time_curr = timing.to_sec()
+			self.first_loop = False
+		else:
+			self.time_prev = self.time_curr
+			timing = data.header.stamp
+			self.time_curr = timing.to_sec()
+			self.time_diff = self.time_curr - self.time_prev
+
 def listener():
 
 	rospy.init_node('listener', anonymous=True)
@@ -387,11 +396,14 @@ def listener():
 	vector_imu_ang_vel_xyz = np.zeros((3,1))
 	vector_imu_mag_xyz = np.zeros((3,1))
 	quaternion_imu = np.zeros((4,1))
+	dt_initial = Duration()
+	dt = dt_initial.time_diff
 
 	callback_imu = lambda x: callback_acc_ang_vel(x, quaternion_imu, vector_imu_acc_xyz, vector_imu_ang_vel_xyz)
 
 	
 	rospy.Subscriber("/sensor/Imu", Imu, callback_imu)
+	rospy.Subscriber("/sensor/Imu", Imu, dt_initial.callback)
 	rospy.Subscriber("/sensor/Magnetometer", MagneticField, lambda x: callback_magnetic_field(x, vector_imu_mag_xyz))
 	pub_quaternion_transform = rospy.Publisher('/orientation', Quaternion, queue_size=10)
 	pub_covariance_matrix = rospy.Publisher('/covariance', Float32MultiArray, queue_size = 10)
@@ -401,10 +413,11 @@ def listener():
 	# quat_initial = np.array([[1], [0], [0], [0]])
 	P_initial = sigma_q_i(quat_initial) 
 
-	rate = rospy.Rate(13.32)
 	while not rospy.is_shutdown():
-
-		quat, covar = kalman_filter(quat_initial, P_initial, vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m)
+		dt = dt_initial.time_diff
+		rate = rospy.Rate(1/dt)
+		print(1/dt)
+		quat, covar = kalman_filter(quat_initial, P_initial, vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m, dt)
 		quat_initial = quat
 		quat_initial = quat_initial/np.linalg.norm(quat_initial) # you should normalize the vector because vectornav uses normalized vectors
 		P_initial = covar
