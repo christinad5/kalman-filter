@@ -56,7 +56,7 @@ class TestKalmanFilter(unittest.TestCase):
                                     (2*q[0]*q[1]+2*q[2]*q[3]),
                                     (-1+2*np.square(q[0])+2*np.square(q[3]))] 
             
-            hessian_g = nd.Jacobian(fun_g)(quat)
+            hessian_g = -1*nd.Jacobian(fun_g)(quat)
             fun_m = lambda q: np.r_[(-1+2*np.square(q[0])+2*np.square(q[1])),
                                     (2*q[1]*q[2]-2*q[0]*q[3]),
                                     (2*q[0]*q[2]+2*q[1]*q[3])] 
