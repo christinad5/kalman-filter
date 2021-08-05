@@ -1,0 +1,6 @@
+<launch>    
+    <arg name="USB_num" />
+
+    <node pkg="imu" type="imu_publisher_node.py" args="$(arg USB_num)" name="imu"></node>
+    <node pkg="kalman_filter" type="kalman_filter.py" output="screen" name="ekf"></node>
+</launch>
