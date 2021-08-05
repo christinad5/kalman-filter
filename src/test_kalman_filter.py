@@ -1,7 +1,7 @@
 import unittest
 import numdifftools as nd
 import numpy as np
-from kalman_filter import err_jac, R_bn
+from kalman_filter import err_jac, R_bn, H_t
 import quaternion as q
 
 class TestKalmanFilter(unittest.TestCase):
@@ -43,7 +43,28 @@ class TestKalmanFilter(unittest.TestCase):
                     self.assertAlmostEqual(R_bn(quat_vert)[i][j], rot_mat.transpose()[i][j])
 
     def test_hessian(self):
-        pass
+        for trial in range(20):
+            # generate random 1x4 array
+            quat = np.random.randn(4)
+            quat_norm = np.linalg.norm(quat)     
+            quat = quat/quat_norm
+
+            # quaternion in vertical list form for R_bn function
+            quat_vert = [[quat[0]], [quat[1]], [quat[2]], [quat[3]]]
+
+            fun_g = lambda q: np.r_[(-2*q[0]*q[2]+2*q[1]*q[3]),
+                                    (2*q[0]*q[1]+2*q[2]*q[3]),
+                                    (-1+2*np.square(q[0])+2*np.square(q[3]))] 
+            
+            hessian_g = nd.Jacobian(fun_g)(quat)
+            fun_m = lambda q: np.r_[(-1+2*np.square(q[0])+2*np.square(q[1])),
+                                    (2*q[1]*q[2]-2*q[0]*q[3]),
+                                    (2*q[0]*q[2]+2*q[1]*q[3])] 
+            hessian_m = nd.Jacobian(fun_m)(quat)
+            hessian = np.block([[hessian_g],[hessian_m]])
+            for i in range(6):
+                for j in range(4):
+                    self.assertAlmostEqual(H_t(quat_vert)[i][j], hessian[i][j])
 
 
 
