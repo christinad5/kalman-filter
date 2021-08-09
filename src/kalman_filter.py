@@ -149,6 +149,10 @@ def quat_propogate(initial_q, y_ang_vel, dt):
 						[q_hat_nb_t[0][3]]])
 	return q_hat_nb_t # use .T to transpose a matrix. 
 
+def bias(initial_b):
+	b = initial_b*np.random.normal(0.0, 0.1)
+	return b
+
 
 def F_t1(y_ang_vel, dt):
 	"""Computes the F Jacobian.`Found on page 40, under equation 4.45b.
@@ -197,11 +201,11 @@ def R_bn(initial_q):
 	q1 = initial_q[1][0]
 	q2 = initial_q[2][0]
 	q3 = initial_q[3][0]
-	R_nb = np.array([[2*np.square(q0)+2*np.square(q1)-1, 2*q1*q2-2*q0*q3, 2*q1*q3+2*q0*q2],
-				[2*q1*q2+2*q0*q3, 2*np.square(q0)+2*np.square(q2)-1, 2*q2*q3-2*q0*q1],
-				[2*q1*q3-2*q0*q2, 2*q2*q3+2*q0*q1, 2*np.square(q0)+2*np.square(q3)-1]])
+	R_nb = np.array([[2*np.square(q0)+2*np.square(q1)-1, 2*q1*q2-2*q0*q3, 				    2*q1*q3+2*q0*q2],
+				[2*q1*q2+2*q0*q3, 						 2*np.square(q0)+2*np.square(q2)-1, 2*q2*q3-2*q0*q1],
+				[2*q1*q3-2*q0*q2, 						 2*q2*q3+2*q0*q1, 					2*np.square(q0)+2*np.square(q3)-1]])
 
-	R_bn = R_nb.transpose()
+	R_bn = np.linalg.inv(R_nb)
 	return R_bn
 
 def H_t(initial_q):
@@ -305,26 +309,27 @@ sigma_w = np.array([
 	[0, np.square(0.0049), 0],
 	[0, 0, np.square(0.0049)]
 ]) 
-# covariance for acceleration. Found on page 24, under equatioon 3.46. Must input values along diagonal.
+# covariance for acceleration. Found on page 24, under equation 3.46. Must input values along diagonal.
 sigma_a = np.array([
-	[np.square(0.26), 0, 0],
-	[0, np.square(0.26), 0],
-	[0, 0, np.square(0.26)]
+	[np.square(0.14), 0, 0],
+	[0, np.square(0.14), 0],
+	[0, 0, np.square(0.14)]
 ])
 # covariance for magnometer. Found on page 25, under equation 3.52. Must input values along the diagonal. 
 sigma_m = np.array([
-	[np.square(0.25), 0, 0],
-	[0, np.square(0.25), 0],
-	[0, 0, np.square(0.25)]
+	[np.square(0.0024), 0, 0],
+	[0, np.square(0.0024), 0],
+	[0, 0, np.square(0.0025)]
 ])
 
 # initiating quaternion data in (q0, q1, q3, q4) scalar first format
 # initiating covariance matrix P
 # P_initial = sigma_q_i(quat_initial) 
 
-def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sigma_a, sigma_m, dt):
+def kalman_filter(quat_initial, bias_inital, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sigma_a, sigma_m, dt):
 	"""Step Two (a)"""
 	quat_estimate = quat_propogate(quat_initial, y_ang_vel, dt)
+	bias_update = bias(bias_inital)
 	F_mat = F_t1(y_ang_vel, dt)
 	G_mat = G_t1(quat_initial, sigma_w, dt)
 	P_estimate = P_propogate(P_initial, F_mat, G_mat, sigma_w)
@@ -336,12 +341,13 @@ def kalman_filter(quat_initial, P_initial, y_acc, y_ang_vel, y_mag, sigma_w, sig
 	S_mat = S_t(P_estimate, H_mat, sigma_a, sigma_m)
 	K_mat = K_t(P_estimate, H_mat, S_mat)
 	
+	y_acc = y_acc - bias_update
 	err_t = error_t(y_acc, y_mag, R_bn_mat)
 
 	quat_update = q_measure(quat_estimate, K_mat, err_t)
 	P_update = P_measure(P_estimate, K_mat, S_mat, quat_update)
 
-	return quat_update, P_update
+	return quat_update, P_update, bias_update
 
 def callback_acc_ang_vel(data, 
 						quaternion_imu, 
@@ -411,16 +417,18 @@ def listener():
 	time.sleep(2) # this is so you give some time to subscriber
 	quat_initial = quaternion_imu
 	# quat_initial = np.array([[1], [0], [0], [0]])
-	P_initial = sigma_q_i(quat_initial) 
+	P_initial = sigma_q_i(quat_initial)
+	bias_initial = np.random.normal(0.0, 0.1)
 
 	while not rospy.is_shutdown():
 		dt = dt_initial.time_diff
 		rate = rospy.Rate(1/dt)
 		print(1/dt)
-		quat, covar = kalman_filter(quat_initial, P_initial, vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m, dt)
+		quat, covar, bias_update = kalman_filter(quat_initial, bias_initial, P_initial, vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m, dt)
 		quat_initial = quat
 		quat_initial = quat_initial/np.linalg.norm(quat_initial) # you should normalize the vector because vectornav uses normalized vectors
 		P_initial = covar
+		bias_initial = bias_update
 
 		quaternion = Quaternion()
 		
