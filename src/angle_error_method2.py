@@ -79,12 +79,12 @@ class AngleClass:
             EKF_angle_vec = EKF_angle(self.quat1_EKF, self.quat2_EKF)
             angle_error = error_calc(imu_angle_vec, EKF_angle_vec)
 
-            print("quat1 imu: ", self.quat1_imu)
-            print("quat2 imu: ", self.quat2_imu)
-            print("imu angles: ", imu_angle_vec)
-            print("quat1 ekf: ", self.quat1_EKF)
-            print("quat2 ekf: ", self.quat2_EKF)
-            print("ekf angles: ", EKF_angle_vec)
+            # print("quat1 imu: ", self.quat1_imu)
+            # print("quat2 imu: ", self.quat2_imu)
+            # print("imu angles: ", imu_angle_vec)
+            # print("quat1 ekf: ", self.quat1_EKF)
+            # print("quat2 ekf: ", self.quat2_EKF)
+            # print("ekf angles: ", EKF_angle_vec)
 
 
             angle_error_pub = Vector3()

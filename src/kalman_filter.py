@@ -262,8 +262,8 @@ def error_t(y_acc, y_mag, R_bn_mat):
 	y_mag is a 3x1 array containing measured magnometer data. 
 	R_bn_mat is a 3x3 array describing the rotation between from the 'n' to 'b' frame. Obtained using R_bn function.
 	Returns 6x1 array."""
-	g_n = np.array([[0], [0], [1]])
-	m_n = np.array([[1], [0], [0]])
+	g_n = np.array([[0], [0], [9.8]])
+	m_n = np.array([[0.53], [0], [0.85]])  # [cos(dip angle at Pasadena), 0, sin(dip angle at Pasadena)]
 
 	y_t = np.block([
 					[y_acc],
@@ -300,22 +300,25 @@ def P_measure(P_prop, K_mat, S_mat, q_update):
 	return P_update
 
 # covariance for angular velocity. Found on page 23, equation 3.42. Must input values along diagonal.
+w_cov = 0.0049
 sigma_w = np.array([
-	[np.square(0.0049), 0, 0],
-	[0, np.square(0.0049), 0],
-	[0, 0, np.square(0.0049)]
+	[np.square(w_cov), 0, 0],
+	[0, np.square(w_cov), 0],
+	[0, 0, np.square(w_cov)]
 ]) 
 # covariance for acceleration. Found on page 24, under equatioon 3.46. Must input values along diagonal.
+a_cov = 0.026
 sigma_a = np.array([
-	[np.square(0.26), 0, 0],
-	[0, np.square(0.26), 0],
-	[0, 0, np.square(0.26)]
+	[np.square(a_cov), 0, 0],
+	[0, np.square(a_cov), 0],
+	[0, 0, np.square(a_cov)]
 ])
 # covariance for magnometer. Found on page 25, under equation 3.52. Must input values along the diagonal. 
+m_covar = 0.025
 sigma_m = np.array([
-	[np.square(0.25), 0, 0],
-	[0, np.square(0.25), 0],
-	[0, 0, np.square(0.25)]
+	[np.square(m_covar), 0, 0],
+	[0, np.square(m_covar), 0],
+	[0, 0, np.square(m_covar)]
 ])
 
 # initiating quaternion data in (q0, q1, q3, q4) scalar first format
@@ -417,6 +420,7 @@ def listener():
 		dt = dt_initial.time_diff
 		rate = rospy.Rate(1/dt)
 		print(1/dt)
+		print(quat_initial)
 		quat, covar = kalman_filter(quat_initial, P_initial, vector_imu_acc_xyz, vector_imu_ang_vel_xyz, vector_imu_mag_xyz, sigma_w, sigma_a, sigma_m, dt)
 		quat_initial = quat
 		quat_initial = quat_initial/np.linalg.norm(quat_initial) # you should normalize the vector because vectornav uses normalized vectors
